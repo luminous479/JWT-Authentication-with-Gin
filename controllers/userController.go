@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -39,4 +40,80 @@ func GetUserById() gin.HandlerFunc {
 
 		c.JSON(200, user)
 	}
+}
+
+func HashPassword() gin.HandlerFunc {
+
+}
+
+func VerifyPassword() gin.HandlerFunc {
+
+}
+
+func SignUp() gin.HandlerFunc {
+ 
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+		
+		var user models.User	
+		c.BindJSON(&user); err !=nil{
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		validationErr := validate.Struct(user)
+		if validationErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+			return
+		}
+		count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while checking for the email"})
+			return
+		}
+		if count > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+			return
+		}
+		
+		count, err = userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while checking for the phone number"})
+			return
+		}
+		if count > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone number already exists"})
+			return
+		}
+
+		user.CreatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		user.UpdatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		
+		password := HashPassword(user.Password)
+		user.Password = password
+		user.CreatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		user.UpdatedAt, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		user.ID = primitive.NewObjectID()
+		user.UserId = user.ID.Hex( )
+		
+		token, refreshToken, _ := helpers.GenerateAllTokens(*user.Email, *user.FirstName, *user.LastName, *user.UserId)
+		user.Token = &token
+		user.RefreshToken = &refreshToken
+		
+		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
+		if insertErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "User item was not created"})
+			return
+		}
+		
+		c.JSON(http.StatusOK, gin.H{"result": resultInsertionNumber})
+	}
+}
+
+func SignIn() gin.HandlerFunc {
+
+}
+
+func GetAllUsers() gin.HandlerFunc {
+
 }
