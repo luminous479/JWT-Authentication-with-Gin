@@ -1,10 +1,14 @@
 package helpers
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/luminous479/JWT-Authentication-with-Gin/database"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type SignedDetails struct {
@@ -16,7 +20,10 @@ type SignedDetails struct {
 	jwt.StandardClaims
 }
 
-var secretKey = os.Getenv("SECRET_KEY")
+var (
+	secretKey     = os.Getenv("SECRET_KEY")
+	userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+)
 
 func GenerateAllTokens(
 	email string,
@@ -39,27 +46,54 @@ func GenerateAllTokens(
 
 	refreshClaims := &SignedDetails{
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(168 * time.Hour).Unix(), // 7 days
+			ExpiresAt: time.Now().Add(7 * 24 * time.Hour).Unix(),
 		},
 	}
 
-	token, err := jwt.NewWithClaims(
+	signedToken, err = jwt.NewWithClaims(
 		jwt.SigningMethodHS256,
 		claims,
 	).SignedString([]byte(secretKey))
 	if err != nil {
-		log.Println("Error generating access token:", err)
 		return "", "", err
 	}
 
-	refreshToken, err := jwt.NewWithClaims(
+	signedRefreshToken, err = jwt.NewWithClaims(
 		jwt.SigningMethodHS256,
 		refreshClaims,
 	).SignedString([]byte(secretKey))
 	if err != nil {
-		log.Println("Error generating refresh token:", err)
 		return "", "", err
 	}
 
-	return token, refreshToken, nil
+	return signedToken, signedRefreshToken, nil
+}
+
+func UpdateAllTokens(
+	signedToken string,
+	signedRefreshToken string,
+	userID string,
+) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer cancel()
+
+	update := bson.M{
+		"$set": bson.M{
+			"token":         signedToken,
+			"refresh_token": signedRefreshToken,
+		},
+	}
+
+	filter := bson.M{
+		"user_id": userID,
+	}
+
+	_, err := userCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Println("Error updating tokens:", err)
+		return err
+	}
+
+	return nil
 }
