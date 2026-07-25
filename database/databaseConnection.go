@@ -12,9 +12,8 @@ import (
 )
 
 func DBInstance() *mongo.Client {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(".env"); err != nil {
+		log.Println("No .env file found; using environment variables")
 	}
 
 	mongoURI := os.Getenv("MONGODB_URL")

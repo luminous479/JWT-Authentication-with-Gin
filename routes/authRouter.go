@@ -5,9 +5,7 @@ import (
 	"github.com/luminous479/JWT-Authentication-with-Gin/controllers"
 )
 
-func AuthRouters(Routes *gin.Engine) {
-
-	Routes.POST("users/signUp", controllers.SignUp())
-	Routes.POST("users/signIn", controllers.SignIn())
-
+func AuthRoutes(Routes *gin.Engine) {
+	Routes.POST("/users/signUp", controllers.SignUp())
+	Routes.POST("/users/signIn", controllers.SignIn())
 }

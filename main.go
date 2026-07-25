@@ -17,21 +17,21 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
-    
+
 	routes.AuthRoutes(router)
 	routes.UserRoutes(router)
 
 	router.GET("api_1/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "success",
-			"detail": "Access granted for API 1",
+			"detail":  "Access granted for API 1",
 		})
 	})
 
 	router.GET("api_2/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "success",
-			"detail": "Access granted for API 2",
+			"detail":  "Access granted for API 2",
 		})
 	})
 

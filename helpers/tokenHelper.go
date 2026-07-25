@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"time"
+
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/luminous479/JWT-Authentication-with-Gin/database"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -21,9 +22,18 @@ type SignedDetails struct {
 }
 
 var (
-	secretKey     = os.Getenv("SECRET_KEY")
+	secretKey = func() string {
+		if key := os.Getenv("SECRET_KEY"); key != "" {
+			return key
+		}
+		return "supersecretkey"
+	}()
 	userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
 )
+
+func GetSecretKey() []byte {
+	return []byte(secretKey)
+}
 
 func GenerateAllTokens(
 	email string,
@@ -32,7 +42,6 @@ func GenerateAllTokens(
 	userType string,
 	uid string,
 ) (signedToken string, signedRefreshToken string, err error) {
-
 	claims := &SignedDetails{
 		Email:     email,
 		FirstName: firstName,
@@ -50,18 +59,12 @@ func GenerateAllTokens(
 		},
 	}
 
-	signedToken, err = jwt.NewWithClaims(
-		jwt.SigningMethodHS256,
-		claims,
-	).SignedString([]byte(secretKey))
+	signedToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(GetSecretKey())
 	if err != nil {
 		return "", "", err
 	}
 
-	signedRefreshToken, err = jwt.NewWithClaims(
-		jwt.SigningMethodHS256,
-		refreshClaims,
-	).SignedString([]byte(secretKey))
+	signedRefreshToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString(GetSecretKey())
 	if err != nil {
 		return "", "", err
 	}
@@ -74,7 +77,6 @@ func UpdateAllTokens(
 	signedRefreshToken string,
 	userID string,
 ) error {
-
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
