@@ -156,7 +156,71 @@ func SignIn() gin.HandlerFunc {
 	}
 
 }
-
 func GetAllUsers() gin.HandlerFunc {
 
+	return func(c *gin.Context) {
+
+		if err := helpers.CheckUserType(c, "ADMIN"); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		recordPage, err := strconv.Atoi(c.Query("recordPage"))
+		if err != nil || recordPage <= 0 {
+			recordPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page <= 0 {
+			page = 1
+		}
+
+		skip := (page - 1) * recordPage
+
+		findOptions := options.Find().
+			SetLimit(int64(recordPage)).
+			SetSkip(int64(skip))
+
+		cursor, err := userCollection.Find(
+			ctx,
+			bson.M{},
+			findOptions,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Error while fetching users",
+			})
+			return
+		}
+		defer cursor.Close(ctx)
+
+		var users []models.User
+
+		for cursor.Next(ctx) {
+			var user models.User
+
+			if err := cursor.Decode(&user); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error": "Error while decoding user data",
+				})
+				return
+			}
+
+			users = append(users, user)
+		}
+
+		if err := cursor.Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, users)
+	}
 }
