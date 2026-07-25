@@ -42,8 +42,9 @@ func GetUserById() gin.HandlerFunc {
 	}
 }
 
-func HashPassword() gin.HandlerFunc {
-
+func HashPassword(password string) string {
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(hashedPassword)
 }
 
 func VerifyPassword(userPass string, hashedPassword string) (bool, string) {
@@ -79,6 +80,8 @@ func SignUp() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
 			return
 		}
+		password := HashPassword(user.Password)
+		user.Password = &password
 		
 		count, err = userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
 		if err != nil {
